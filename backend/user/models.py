@@ -25,12 +25,25 @@ class CustomUser(AbstractUser):
         self.save()
         
     def verify_otp(self, otp):
-        print(f"Stored OTP: {self.otp} {self.otp == otp}, Expiry: {self.otp_expiration > now()}")
-        if self.otp == otp and self.otp_expiration > now():
+        is_valid_otp = self.otp == otp
+        is_valid_time = self.otp_expiration > now()
+        
+        print(f"\n🔐 OTP Verification Details:")
+        print(f"  Stored OTP: {self.otp}")
+        print(f"  Provided OTP: {otp}")
+        print(f"  OTP Match: {'✅ Yes' if is_valid_otp else '❌ No'}")
+        print(f"  OTP Expiry Time: {self.otp_expiration}")
+        print(f"  Current Time: {now()}")
+        print(f"  Time Valid: {'✅ Yes' if is_valid_time else '❌ No (Expired)'}")
+        
+        if is_valid_otp and is_valid_time:
             self.is_authenticated = True
             self.otp = None
             self.save()
+            print(f"  ✅ Result: OTP VERIFIED\n")
             return True
+        
+        print(f"  ❌ Result: OTP VERIFICATION FAILED\n")
         return False
     
     

@@ -26,7 +26,16 @@ const Worker = () => {
   const { isAuthenticated, role } = useSelector((state) => state.auth)
   const navigate = useNavigate();
   const [location, setLocation] = useState({ latitude: null, longitude: null });
-  const [page, setPage] = useState(localStorage.getItem('page') || 'Home')
+  const [page, setPage] = useState(() => {
+    // Check if returning from Stripe payment - show Payments page temporarily for verification
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('payment') === 'success') {
+      console.log('🔄 Payment redirect detected! Auto-verifying payment...');
+      // Will redirect to home after verification completes
+      return 'Payments';
+    }
+    return localStorage.getItem('page') || 'Home';
+  });
   const dispatch = useDispatch();
 
   const worker_view = async (latitude = null, longitude = null) => {
@@ -98,7 +107,7 @@ const Worker = () => {
           {page == 'Chats' && <ProtectedRoute><Chats/></ProtectedRoute>}
           {page == 'Bookings' && <ProtectedRoute><Bookings/></ProtectedRoute>}
           {page == 'Profile' && <ProtectedRoute><Profile/></ProtectedRoute>}
-          {page == 'Payments' && <ProtectedRoute><Payments/></ProtectedRoute>}
+          {page == 'Payments' && <ProtectedRoute><Payments setPage={setPage}/></ProtectedRoute>}
 
           {/* Redirect to Home if page is invalid */}
           {!['Home', 'Schedule', 'Chats', 'Bookings', 'Profile', 'Payments'].includes(page) && (() => {

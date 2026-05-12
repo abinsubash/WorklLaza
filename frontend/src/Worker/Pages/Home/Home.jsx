@@ -131,7 +131,19 @@ const Home = () => {
   }
 
   useEffect(() => {
-    worker_view()
+    // Check if this is a redirect from successful payment
+    const refreshFlag = sessionStorage.getItem('forceRefreshHome');
+    
+    if (refreshFlag) {
+      // Remove the flag to prevent infinite refetches
+      sessionStorage.removeItem('forceRefreshHome');
+      
+      // Always fetch fresh data when Home mounts
+      worker_view();
+    } else {
+      // Normal mount - fetch data
+      worker_view();
+    }
   }, [])
 
   useEffect(() => {

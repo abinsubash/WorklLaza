@@ -98,8 +98,21 @@ const WorkerRegister = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        // Validation
+        if (!workerData.job) {
+            toast.error('Please select a job title');
+            return;
+        }
+        if (!workerData.id_prof) {
+            toast.error('ID Proof is required');
+            return;
+        }
+        if (!workerData.location) {
+            toast.error('Geolocation is required');
+            return;
+        }
+
         const formData = new FormData();
-        formData.append('username', workerData.username);
         formData.append('full_name', workerData.full_name);
         formData.append('age', workerData.age);
         formData.append('salary', workerData.salary);
@@ -109,34 +122,38 @@ const WorkerRegister = () => {
         formData.append('job', workerData.job);
         formData.append('previous_company', workerData.previous_company);
         formData.append('id_prof', workerData.id_prof);
-        formData.append('certificate', workerData.certificate);
+        if (workerData.certificate) {
+            formData.append('certificate', workerData.certificate);
+        }
+        formData.append('latitude', workerData.location.latitude);
+        formData.append('longitude', workerData.location.longitude);
 
-        if (workerData.location) {
-            formData.append('latitude', workerData.location.latitude);
-            formData.append('longitude', workerData.location.longitude);
-
-
-
-            try {
-                const response = await API.post('/worker/register/', formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    },
-                });
-                toast.success(response.data.message)
-                dispatch(logout())
-                navigate('/')
-            } catch (error) {
-                error?.response?.data?.message && toast.error(error?.response?.data?.message)
-                if (error.response.data.messages) {
-                    Object.entries(error.response.data.messages).forEach(([key, value]) => {
-                        toast.error(`${key} : ${value.join(', ')}`);
-                    });
-                }
+        try {
+            const response = await API.post('/worker/register/', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+            toast.success(response.data.message)
+            dispatch(logout())
+            navigate('/')
+        } catch (error) {
+            if (error?.response?.data?.message) {
+                toast.error(error.response.data.message);
             }
-
-        } else {
-            toast.error("Geolocation is not supported by this browser.");
+            if (error?.response?.data?.messages) {
+                Object.entries(error.response.data.messages).forEach(([key, value]) => {
+                    if (Array.isArray(value)) {
+                        toast.error(`${key}: ${value.join(', ')}`);
+                    } else {
+                        toast.error(`${key}: ${value}`);
+                    }
+                });
+            } else if (error?.message) {
+                toast.error(`Error: ${error.message}`);
+            } else {
+                toast.error('An error occurred during registration');
+            }
         }
 
     }
@@ -180,6 +197,7 @@ const WorkerRegister = () => {
                             <div className="form-group">
                                 <label htmlFor="job" className="label">Job title</label>
                                 <select name="" id="job" className="form-input job_select" onChange={handleInputChange} required>
+                                    <option value="">-- Select a job --</option>
                                     {
                                         jobs?.map((job, index) => {
                                             return <option key={index} value={job.id} className='job_obtions'>{job.title}</option>

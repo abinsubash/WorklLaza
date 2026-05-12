@@ -7,8 +7,8 @@ import API from '../../../api'
 
 const Schedule = () => {
   const [selectedDay, setSelectedDay] = useState("Monday");
-  const [fromTime, setFromTime] = useState(null);
-  const [toTime, setToTime] = useState(null);
+  const [fromTime, setFromTime] = useState("");
+  const [toTime, setToTime] = useState("");
   const [tb, setTB] = useState(false);
   const [slots, setSlots] = useState([]);
 
@@ -37,7 +37,7 @@ const Schedule = () => {
   }
 
   const add_slot = async ()=>{
-    if (!(fromTime||toTime)){
+    if (!selectedDay || !fromTime || !toTime){
       toast.warning('Please select Week, From and To')
       return
     }
@@ -113,11 +113,10 @@ const Schedule = () => {
         </div>
 
         <div className="table-container " >
-          <table className="table">
-            { slots?.length == 0 ?
+          { slots?.length == 0 ?
             <h3 style={{padding:"5% 5%", color:'red'}}>Please add at least one slot</h3>
             :
-            <>
+            <table className="table">
               <thead>
                 <tr>
                   <th scope="col">Day </th>
@@ -140,9 +139,8 @@ const Schedule = () => {
                   ))
                 }
               </tbody>
-            </>
-            }
-          </table>
+            </table>
+          }
           <br /> 
         </div>
       </div>

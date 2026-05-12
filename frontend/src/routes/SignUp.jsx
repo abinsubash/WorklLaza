@@ -52,9 +52,19 @@ const SignUp = () => {
       localStorage.setItem('forgot_password', false);
       navigate('/signup/enterotp');
     } catch (error) {
-      for (let key in error.response.data) {
-        // toast.error(error.response.data.message);
-        error.response.data[key].map((item) => toast.error(`${key}: ${item}`))
+      if (error.response) {
+        for (let key in error.response.data) {
+          const value = error.response.data[key];
+          if (Array.isArray(value)) {
+            value.map((item) => toast.error(`${key}: ${item}`));
+          } else if (typeof value === 'string') {
+            toast.error(`${key}: ${value}`);
+          } else {
+            toast.error(JSON.stringify(value));
+          }
+        }
+      } else {
+        toast.error('Network error. Please try again.');
       }
     } finally {
       setIsLoading(false);

@@ -19,6 +19,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 import jwt
 import stripe
+import os
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 JWT_SECRET_KEY = settings.JWT_SECRET_KEY
@@ -31,22 +32,38 @@ class RegistrationView(APIView):
         serializer = JobSerializer(jobs, many=True) 
         return Response({'message': 'success','Jobs':serializer.data}, status=status.HTTP_200_OK)
     def post(self, request, *args, **kwargs):
-        username = request.data.get('username')
-        job_id = request.data.get('job')
-        user = User.objects.get(username=username)
-        job = Jobs.objects.get(id=job_id)
-        if user.is_worker:
-            return Response({'message':'Aldready reagisterd; request may under verification.'}, status=status.HTTP_200_OK)
-        mutable_data = request.data
-        mutable_data['user'] = user.id
-        mutable_data['job'] = job.id
-        serializer = WorkerSerializer(data=mutable_data)
-        if serializer.is_valid():
-            serializer.save(user=user)
-            user.is_worker = True
-            user.save()
-            return Response({'message':'Worker registered successfully; request is under verification.'}, status=status.HTTP_201_CREATED)
-        return Response({'messages':serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            # Get authenticated user directly from request
+            user = request.user
+            job_id = request.data.get('job')
+            
+            # Validate job_id
+            if not job_id:
+                return Response({'message':'Job selection is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Check if user is already a worker
+            if user.is_worker:
+                return Response({'message':'Already registered; request may be under verification.'}, status=status.HTTP_200_OK)
+            
+            try:
+                job = Jobs.objects.get(id=job_id)
+            except Jobs.DoesNotExist:
+                return Response({'message':'Invalid job selection.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Prepare data for serializer
+            mutable_data = request.data.copy()
+            mutable_data['user'] = user.id
+            mutable_data['job'] = job.id
+            
+            serializer = WorkerSerializer(data=mutable_data)
+            if serializer.is_valid():
+                serializer.save(user=user)
+                user.is_worker = True
+                user.save()
+                return Response({'message':'Worker registered successfully; request is under verification.'}, status=status.HTTP_201_CREATED)
+            return Response({'messages':serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 # --- professional details view ---
 class DetailsView(APIView):
@@ -187,13 +204,15 @@ class SlotView(APIView):
         
     def put(self, request, *args, **kwargs):
         slot_id = request.data.get('id')
-        print(slot_id)
         try:
             slot = Slots.objects.get(id=slot_id)
+            # Delete method now cascades to related bookings automatically
             slot.delete()
-            return Response({'message':"Slot status updated successfully"},status=status.HTTP_200_OK) 
+            return Response({'message': "Slot deleted successfully"}, status=status.HTTP_200_OK) 
+        except Slots.DoesNotExist:
+            return Response({'message': "Slot not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e: 
-            return Response({'message':str(e)},status=status.HTTP_409_CONFLICT) 
+            return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
 # --- Worker view ----
 class WorkerView(APIView):
     permission_classes = [IsAuthenticated]
@@ -211,20 +230,20 @@ class WorkerView(APIView):
                 try:
                     worker = Worker.objects.get(user=user)
                     if not worker.is_verified:
-                        return Response({'messages':'The worker profile is not varified yet','is_verified':worker.is_verified},status=status.HTTP_401_UNAUTHORIZED)
+                        return Response({'message':'The worker profile is not verified yet','is_verified':worker.is_verified},status=status.HTTP_401_UNAUTHORIZED)
                     if not worker.is_active:
-                        return Response({'messages':'Admin is blocked you profile','is_active':worker.is_active},status=status.HTTP_401_UNAUTHORIZED)
-                    if(not worker.latitude, not worker.longitude):
+                        return Response({'message':'Admin has blocked your profile','is_active':worker.is_active},status=status.HTTP_401_UNAUTHORIZED)
+                    if not worker.latitude or not worker.longitude:
                         worker.latitude = request.data.get('latitude')
                         worker.longitude = request.data.get('longitude')
                         worker.save()
-                    return Response({'messages':'Loged In as a worker','full_name':worker.full_name,'gps':gps },status=status.HTTP_200_OK)
+                    return Response({'message':'Logged in as a worker','full_name':worker.full_name,'gps':gps},status=status.HTTP_200_OK)
                 except:
-                    return Response({'messages':'The user des not have a worker profile'},status=status.HTTP_401_UNAUTHORIZED)
-            elif not user.is_worker :
-                return Response({'messages':"You don't have access to this page"},status=status.HTTP_401_UNAUTHORIZED)
+                    return Response({'message':'The user does not have a worker profile'},status=status.HTTP_401_UNAUTHORIZED)
+            else:
+                return Response({'message':"You don't have access to this page"},status=status.HTTP_401_UNAUTHORIZED)
         except Exception as e:
-            return Response({'messages':str(e)},status=status.HTTP_401_UNAUTHORIZED)
+            return Response({'message':str(e)},status=status.HTTP_401_UNAUTHORIZED)
         
 # --- Worker view ----
 class BookingsView(APIView):
@@ -288,28 +307,49 @@ class PaymentsView(APIView):
         
     def post(self, request, *args, **kwargs):
         try:
+            # Extract and decode JWT token
             token = request.headers['Authorization'][7:]
             decoded = jwt.decode(token,JWT_SECRET_KEY,algorithms=['HS256'])
             user_id = decoded['user_id']
-            user =  User.objects.get(id=user_id)
+            
+            # Fetch user and worker
+            user = User.objects.get(id=user_id)
             worker = Worker.objects.get(user=user)
-            if worker.pending_fee <= 0: return Response({"message": "No pending payments"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Check if there's a pending fee
+            if worker.pending_fee <= 0: 
+                return Response({"message": "No pending payments"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Create Stripe checkout session
+            frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+            amount_cents = int(worker.pending_fee * 100)
+            
             checkout_session = stripe.checkout.Session.create(
                 payment_method_types=["card"],
                 line_items=[
                     {
                         "price_data": {
                             "currency": "inr",
-                            "product_data": { "name": "Platform Fee", }, "unit_amount": int(worker.pending_fee * 100), 
-                        }, "quantity": 1,
+                            "product_data": { 
+                                "name": "Platform Service Fee", 
+                            }, 
+                            "unit_amount": amount_cents, 
+                        }, 
+                        "quantity": 1,
                     }
                 ],
                 mode="payment",
-                success_url=f"https://www.worklaza.site",
-                cancel_url="https://www.worklaza.site",
+                success_url=f"{frontend_url}/worker?payment=success",
+                cancel_url=f"{frontend_url}/worker?payment=cancelled",
                 customer_email=request.user.email,
             )
-            return Response({"checkout_url": checkout_session.url}, status=status.HTTP_200_OK)
+            
+            # Return response with session details
+            return Response({
+                'checkout_url': checkout_session.url,
+                'session_id': checkout_session.id,
+                'amount': worker.pending_fee
+            }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
         
@@ -322,8 +362,8 @@ class StripeWebhookView(APIView):
         sig_header = request.headers.get("Stripe-Signature")
         endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
         
-        if not sig_header:
-            return JsonResponse({"error": "Missing Stripe Signature"}, status=400)
+        if not sig_header or not endpoint_secret:
+            return JsonResponse({"error": "Missing Stripe Signature or Webhook Secret"}, status=400)
         
         try:
             event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
@@ -335,18 +375,194 @@ class StripeWebhookView(APIView):
         if event["type"] == "checkout.session.completed":
             session = event["data"]["object"]
             email = session.get("customer_email")
+            amount = session.get("amount_total", 0)
+            session_id = session.get("id")
+            
             if not email:
-                print("No email found in the session")
+                print(f"  ❌ No email found in session")
                 return JsonResponse({"error": "No email in session"}, status=401)
 
-            worker = Worker.objects.get(user__email=email)
-            worker.payed_fee += worker.pending_fee
-            worker.pending_fee = 0
-            worker.save()
-            Wallet.objects.create( user=worker.user, worker=worker, amount=session["amount_total"], pyment_id=session["id"], status="success", type="credit", )
+            try:
+                worker = Worker.objects.get(user__email=email)
+                print(f"  👤 Worker found: {worker.full_name}")
+                print(f"  💸 Before - Pending: {worker.pending_fee}, Paid: {worker.payed_fee}")
+                
+                worker.payed_fee += worker.pending_fee
+                worker.pending_fee = 0
+                worker.save()
+                
+                print(f"  ✅ After - Pending: {worker.pending_fee}, Paid: {worker.payed_fee}")
+                
+                # Create wallet transaction
+                wallet = Wallet.objects.create(
+                    user=worker.user,
+                    worker=worker,
+                    amount=amount,
+                    pyment_id=session_id,
+                    status="success",
+                    type="credit"
+                )
+                print(f"  💾 Wallet transaction created: {wallet.id}")
+                
+            except Worker.DoesNotExist:
+                print(f"  ❌ Worker not found for email: {email}")
+                return JsonResponse({"error": "Worker not found"}, status=404)
+            except Exception as e:
+                print(f"  ❌ Error processing payment: {str(e)}")
+                return JsonResponse({"error": str(e)}, status=500)
+        
         return JsonResponse({"status": "success"}, status=200)
 
-# set PATH=%PATH%;C:\stripe-cli\
-# stripe listen --forward-to http://127.0.0.1:8000/worker/stripe-webhook/
+# --- Payment Verification Endpoint (for development) ---
+class PaymentVerificationView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request, *args, **kwargs):
+        """Manual payment verification - called after Stripe checkout success"""
+        session_id = request.data.get('session_id')
+        
+        if not session_id or session_id == 'auto_detect':
+            return Response({
+                'message': 'Session ID required and must be valid'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Get worker
+            worker = Worker.objects.get(user=request.user)
+            
+            # Check if already processed
+            existing_wallet = Wallet.objects.filter(pyment_id=session_id).first()
+            if existing_wallet:
+                return Response({
+                    'message': 'Payment already verified',
+                    'pending_fee': worker.pending_fee,
+                    'payed_fee': worker.payed_fee
+                }, status=status.HTTP_200_OK)
+            
+            # Retrieve session from Stripe
+            session = stripe.checkout.Session.retrieve(session_id)
+            
+            # Verify payment is completed
+            if session.payment_status != 'paid':
+                return Response({
+                    'message': f'Payment not completed. Status: {session.payment_status}',
+                    'pending_fee': worker.pending_fee,
+                    'payed_fee': worker.payed_fee
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Process payment - update worker fees
+            amount_paid = session.amount_total / 100  # Convert cents to rupees
+            
+            worker.payed_fee += amount_paid
+            worker.pending_fee = max(0, worker.pending_fee - amount_paid)
+            worker.total_fee += amount_paid
+            worker.save()
+            
+            # Create wallet transaction
+            wallet = Wallet.objects.create(
+                user=worker.user,
+                worker=worker,
+                amount=session.amount_total,
+                pyment_id=session_id,
+                status="success",
+                type="credit"
+            )
+            
+            return Response({
+                'message': 'Payment verified successfully ✅',
+                'pending_fee': worker.pending_fee,
+                'payed_fee': worker.payed_fee,
+                'total_fee': worker.total_fee,
+                'transaction_id': wallet.id
+            }, status=status.HTTP_200_OK)
+                
+        except Worker.DoesNotExist:
+            return Response({
+                'message': 'Worker profile not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except stripe.error.InvalidRequestError as e:
+            return Response({
+                'message': 'Invalid session ID or expired. Please try again.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                'message': f'Verification failed: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            print(f"   Payment Status: {session.payment_status}")
+            print(f"   Amount: ₹{session.amount_total/100}")
+            print(f"   Mode: {session.mode}")
+            
+            # Check if already processed
+            existing_wallet = Wallet.objects.filter(pyment_id=session_id).first()
+            if existing_wallet:
+                print(f"⚠️  Payment already processed on {existing_wallet.id}")
+                return Response({
+                    'message': 'Payment already verified',
+                    'pending_fee': worker.pending_fee,
+                    'payed_fee': worker.payed_fee
+                }, status=status.HTTP_200_OK)
+            
+            # Verify payment is completed
+            if session.payment_status != 'paid':
+                print(f"❌ Payment not completed. Status: {session.payment_status}")
+                return Response({
+                    'message': f'Payment not completed. Status: {session.payment_status}',
+                    'pending_fee': worker.pending_fee,
+                    'payed_fee': worker.payed_fee
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Process payment
+            print(f"\n💰 Processing payment...")
+            amount_paid = session.amount_total / 100  # Convert cents to rupees
+            
+            # Update worker fees
+            worker.payed_fee += amount_paid
+            worker.pending_fee = max(0, worker.pending_fee - amount_paid)
+            worker.total_fee += amount_paid
+            worker.save()
+            
+            # Create wallet transaction
+            wallet = Wallet.objects.create(
+                user=worker.user,
+                worker=worker,
+                amount=session.amount_total,
+                pyment_id=session_id,
+                status="success",
+                type="credit"
+            )
+            
+            print(f"✅ Payment successful!")
+            print(f"   Wallet ID: {wallet.id}")
+            print(f"   Updated Fees - Pending: ₹{worker.pending_fee}, Paid: ₹{worker.payed_fee}")
+            print(f"{'='*60}\n")
+            
+            return Response({
+                'message': 'Payment verified successfully ✅',
+                'pending_fee': worker.pending_fee,
+                'payed_fee': worker.payed_fee,
+                'total_fee': worker.total_fee,
+                'transaction_id': wallet.id
+            }, status=status.HTTP_200_OK)
+                
+        except Worker.DoesNotExist:
+            print(f"❌ Worker not found for user: {request.user.email}")
+            print(f"{'='*60}\n")
+            return Response({
+                'message': 'Worker profile not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except stripe.error.InvalidRequestError as e:
+            print(f"❌ Stripe Error: Invalid session ID or expired")
+            print(f"   Details: {str(e)}")
+            print(f"{'='*60}\n")
+            return Response({
+                'message': 'Invalid session ID or expired. Please try again.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print(f"❌ Error: {str(e)}")
+            print(f"   Type: {type(e).__name__}")
+            print(f"{'='*60}\n")
+            return Response({
+                'message': f'Verification failed: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

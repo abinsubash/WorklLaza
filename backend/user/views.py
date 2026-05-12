@@ -87,7 +87,8 @@ class SignInView(APIView):
     def authenticate_user(self, user, password, request):
         if not user.is_active:
             return Response({'message': 'This user is blocked by the admin'},status=status.HTTP_401_UNAUTHORIZED)
-        if not user.is_authenticated:
+        # Skip OTP verification for admin (superuser)
+        if not user.is_authenticated and not user.is_superuser:
             send_otp_email.delay(user.id)
             return Response({'message': 'User is not authenticated Please verify email with otp','email_varify':True}, status=status.HTTP_401_UNAUTHORIZED)
         authenticated_user = authenticate(username=user.username, password=password)
@@ -161,27 +162,32 @@ class OtpView(APIView):
         try:
             user = User.objects.get(email=email)
             user.generate_otp()
+            print(f"\n✅ OTP Generated for {email}: {user.otp}")
             send_otp_email.delay(user.id)
             return Response({'message': 'OTP sent successfully!'}, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'message': 'No user exists with this email'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            print("EXCEPT : ", str(e))
+            print(f"❌ OTP Generation Error: {str(e)}")
             return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
     def patch(self, request, *args, **kwargs):
         email = request.data.get('email')
         otp = request.data.get('otp')
-        print(email,otp)
+        print(f"\n🔐 OTP Verification Attempt")
+        print(f"  Email: {email}")
+        print(f"  OTP Entered: {otp}")
         try:
             user = User.objects.get(email=email)
-            print(user.username, otp)
             if user.verify_otp(otp):
+                print(f"✅ OTP Verified Successfully for {user.username}")
                 return Response({'message': 'OTP verified successfully!',"username":user.username}, status=status.HTTP_200_OK)
+            print(f"❌ Invalid OTP for {user.username}. Expected: {user.otp}, Got: {otp}")
             return Response({'message': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
         except User.DoesNotExist:
             return Response({'message': 'No user exists with this email'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            print(f"❌ OTP Verification Error: {str(e)}")
             return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 # --- Password view ---- 

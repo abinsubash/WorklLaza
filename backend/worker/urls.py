@@ -9,5 +9,6 @@ urlpatterns = [
     path('bookings_view/', BookingsView.as_view(), name='view_bookings'),
     path('bookings_view/<int:booking_id>', BookingsView.as_view(), name='change_booking_status'),
     path('payments_view/', PaymentsView.as_view(), name='payments_view'),
+    path('payment_verify/', PaymentVerificationView.as_view(), name='payment_verify'),
     path("stripe-webhook/", StripeWebhookView.as_view(), name="stripe-webhook"),
 ]

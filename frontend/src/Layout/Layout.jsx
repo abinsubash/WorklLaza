@@ -1,6 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useEffect, useState } from 'react';
-import PropTypes from 'prop-types';
 import './Layout.css';
 import Header from '../Compenets/header/Header';
 import Footer from '../Compenets/Footer/Footer'
@@ -23,7 +22,7 @@ import { logout } from '../authSlice';
 
 export const PageContext = createContext();
 
-const Layout = (props) => {
+const Layout = ({ not_found = "false" } = {}) => {
 
   const navigate = useNavigate();
   const { role,refreshToken } = useSelector((state) => state.auth)
@@ -45,7 +44,7 @@ const Layout = (props) => {
   }
 
   useEffect(() => {
-    if (props.not_found == "true") {
+    if (not_found == "true") {
       setPage('not')
     }
     user_status_handler()
@@ -69,7 +68,7 @@ const Layout = (props) => {
   return (
     <>
       <PageContext.Provider value={setPage}>
-        <Header page={page} not_found={props?.not_found} />
+        <Header page={page} not_found={not_found} />
         {page == 'Home' && <Home />}
         {page == 'Saved' && <ProtectedRoute><Saved /></ProtectedRoute>}
         {page == 'Workers' && <Workers />}
@@ -96,13 +95,5 @@ const Layout = (props) => {
 
 
 }
-
-Layout.propTypes = {
-  not_found: PropTypes.string
-};
-
-Layout.defaultProps = {
-  not_found: false
-};
 
 export default Layout

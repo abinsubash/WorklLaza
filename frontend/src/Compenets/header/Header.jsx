@@ -6,12 +6,11 @@ import { useState, useContext, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { PageContext } from '../../Layout/Layout';
-import PropTypes from 'prop-types';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../authSlice';
 
 
-const Header = ({ page }) => {
+const Header = ({ page, not_found = "false" }) => {
 
   const { username, first_name, last_name, role, isAuthenticated, user_id } = useSelector((state) => state.auth)
 
@@ -32,7 +31,7 @@ const Header = ({ page }) => {
   };
 
   useEffect(() => {
-    if (!user_id) return;
+    if (!user_id || !isAuthenticated || !web_socket_url) return;
 
     const socket = new WebSocket(`${web_socket_url}${user_id}/`);
 
@@ -55,7 +54,7 @@ const Header = ({ page }) => {
 
     setWs(socket);
     return () => socket.close();
-  }, [user_id])
+  }, [user_id, isAuthenticated, web_socket_url])
 
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
@@ -162,9 +161,5 @@ const Header = ({ page }) => {
     </div>
   )
 }
-
-Header.propTypes = {
-  page: PropTypes.string.isRequired,
-};
 
 export default Header

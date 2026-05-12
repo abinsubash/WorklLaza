@@ -4,16 +4,14 @@ import {jwtDecode} from "jwt-decode"
 import { useDispatch, useSelector } from "react-redux";
 import Loader from "../Loader/Loader"
 import { toast } from 'sonner';
-import { useState, useEffect, useContext } from "react"
+import { useState, useEffect } from "react"
 import { login, logout } from "../../authSlice";
-import { PageContext } from "../../Layout/Layout";
 import axios from "axios";
 
 function ProtectedRoute({children}){
     
     const [isAuthorized, setIsAuthorized] = useState(null)
     const { accessToken, refreshToken } = useSelector((state) => state.auth)
-    const setPage = useContext(PageContext);
     const navigate = useNavigate();
     const dispatch = useDispatch();
     
@@ -35,7 +33,6 @@ function ProtectedRoute({children}){
             }
         } catch (error) {
             console.error("Token refresh error:", error);
-            setPage('Home')
             localStorage.setItem('page','Home')
             dispatch(logout());
             setIsAuthorized(false)
@@ -44,7 +41,6 @@ function ProtectedRoute({children}){
     
     const auth = async () =>{
         if (!accessToken || !refreshToken){
-            setPage('Home')
             localStorage.setItem('page','Home')
             toast.warning('Please signIn to visit this page')
             setIsAuthorized(false)
@@ -66,7 +62,7 @@ function ProtectedRoute({children}){
             console.error("Token decoding error:", error);
             dispatch(logout());
             setIsAuthorized(false);
-            navigate('/sigin')
+            navigate('/signin')
             return
         }
         
@@ -77,7 +73,7 @@ function ProtectedRoute({children}){
         return <Loader />
     }
 
-    return isAuthorized ? children : <Navigate to="/sigin"/>
+    return isAuthorized ? children : <Navigate to="/signin"/>
 }
 
 

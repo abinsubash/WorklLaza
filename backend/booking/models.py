@@ -7,7 +7,7 @@ class Booking(models.Model):
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING,related_name='bookings')
     worker = models.ForeignKey(Worker,on_delete=models.DO_NOTHING, related_name='bookings')
     job = models.ForeignKey(Jobs, on_delete=models.DO_NOTHING, related_name='bookings')
-    slot = models.ForeignKey(Slot, on_delete=models.DO_NOTHING, related_name='booking')
+    slot = models.ForeignKey(Slot, on_delete=models.CASCADE, related_name='booking')
     duration = models.CharField( max_length=50)
     any_previous_issues = models.TextField()
     damaged_parts = models.TextField()
