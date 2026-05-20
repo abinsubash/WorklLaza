@@ -67,52 +67,50 @@ const Bookings = () => {
       <br />
       <div className="container-fluid">
         <div className="table-container " >
-          <table className="table">
-            {bookings?.length == 0 ?
-              <h3 style={{ padding: "5% 5%", color: 'red' }}>{`You don't have at least one booking`}</h3>
-              :
-              <>
-                <thead>
-                  <tr>
-                    <th scope="col">Username</th>
-                    <th scope="col">Booked To</th>
-                    <th scope="col">Slot</th>
-                    <th scope="col">Address</th>
-                    <th scope="col" style={{ textAlign: 'center' }}>Action/Status</th>
-                    <th scope="col">Chat</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {
-                    bookings?.map((booking, index) => {
-                      return (
-                        <tr key={index}>
-                          <td onClick={() => openBooking(booking, index)} >{booking?.user_profile?.username}</td>
-                          <td onClick={() => openBooking(booking, index)} >{booking?.booked_date}{` (${booking?.slot_details?.day_of_week})`}</td>
-                          <td onClick={() => openBooking(booking, index)} >{booking?.slot_details?.start_time} - {booking?.slot_details?.end_time}{` (${booking?.duration}hours)`}</td>
-                          <td onClick={() => openBooking(booking, index)} >{booking?.address}</td>
-                          <td style={{ textAlign: 'center' }}>
-                            {
-                              booking?.status == 'created' ? (
-                                <>
-                                  <CheckCircle color='green' onClick={() => { change_booking_status('accepted', booking?.id) }} /> &nbsp;&nbsp;&nbsp;&nbsp;
-                                  <Ban color='red' onClick={() => { change_booking_status('rejected', booking?.id) }} />
-                                </>
-                              ) : booking?.status
-                            }
-                          </td>
+          {bookings?.length == 0 ?
+            <h3 style={{ padding: "5% 5%", color: 'red' }}>{`You don't have at least one booking`}</h3>
+            :
+            <table className="table">
+              <thead>
+                <tr>
+                  <th scope="col">Username</th>
+                  <th scope="col">Booked To</th>
+                  <th scope="col">Slot</th>
+                  <th scope="col">Address</th>
+                  <th scope="col" style={{ textAlign: 'center' }}>Action/Status</th>
+                  <th scope="col">Chat</th>
+                </tr>
+              </thead>
+              <tbody>
+                {
+                  bookings?.map((booking, index) => {
+                    return (
+                      <tr key={index}>
+                        <td onClick={() => openBooking(booking, index)} >{booking?.user_profile?.username}</td>
+                        <td onClick={() => openBooking(booking, index)} >{booking?.booked_date}{` (${booking?.slot_details?.day_of_week})`}</td>
+                        <td onClick={() => openBooking(booking, index)} >{booking?.slot_details?.start_time} - {booking?.slot_details?.end_time}{` (${booking?.duration}hours)`}</td>
+                        <td onClick={() => openBooking(booking, index)} >{booking?.address}</td>
+                        <td style={{ textAlign: 'center' }}>
                           {
-                            booking?.status !== "rejected" && booking?.status !== "created" && booking?.status !== "canceled" && <td><ChatLeftDots onClick={()=>handleChatOpen(booking?.user)}/></td>
+                            booking?.status == 'created' ? (
+                              <>
+                                <CheckCircle color='green' onClick={() => { change_booking_status('accepted', booking?.id) }} /> &nbsp;&nbsp;&nbsp;&nbsp;
+                                <Ban color='red' onClick={() => { change_booking_status('rejected', booking?.id) }} />
+                              </>
+                            ) : booking?.status
                           }
+                        </td>
+                        {
+                          booking?.status !== "rejected" && booking?.status !== "created" && booking?.status !== "canceled" && <td><ChatLeftDots onClick={()=>handleChatOpen(booking?.user_profile?.user_id)}/></td>
+                        }
 
-                        </tr>
-                      )
-                    })
-                  }
-                </tbody>
-              </>
-            }
-          </table>
+                      </tr>
+                    )
+                  })
+                }
+              </tbody>
+            </table>
+          }
           <br />
         </div>
       </div>

@@ -424,15 +424,19 @@ class BookingsView(APIView):
             total = int(request.data.get('total'))
             
             try:
-                selectedDay = datetime.strptime(selectedDay, '%m/%d/%Y').date()
+                # Handle different date formats (MM/DD/YYYY or DD/MM/YYYY)
+                try:
+                    selectedDay = datetime.strptime(selectedDay, '%m/%d/%Y').date()
+                except ValueError:
+                    selectedDay = datetime.strptime(selectedDay, '%d/%m/%Y').date()
             except ValueError:
-                return Response({"error": "Invalid date format for 'selectedDay', use MM/DD/YYYY."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "Invalid date format for 'selectedDay', use MM/DD/YYYY or DD/MM/YYYY."}, status=status.HTTP_400_BAD_REQUEST)
             
             user = User.objects.get(id=user_id)
             worker = Worker.objects.get(id=worker_id)
             slot = WorkerAvailability.objects.get(id=slot_id)
             
-            if Booking.objects.filter(slot=slot, booked_date=selectedDay).exists:
+            if Booking.objects.filter(slot=slot, booked_date=selectedDay).exists():
                 
                 previus_boookings = Booking.objects.filter(slot=slot, booked_date=selectedDay)
                 total_duration = 0

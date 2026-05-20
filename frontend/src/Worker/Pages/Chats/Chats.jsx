@@ -55,7 +55,7 @@ const Chat = () => {
       newWs.onmessage = (event) => {
         setChatLoading(true);
         const data = JSON.parse(event.data);  
-        setMessages((prev) => [...prev, { sender: data.sender, text: data.message, timestamp:data.timestamp, image: data.image || null}]);
+        setMessages((prev) => [...prev, { sender: data.sender, text: data.message, timestamp:data.timestamp, image: data.image || null, id: `${data.timestamp}-${data.sender}` }]);
         setTimeout(() => { 
           setChatLoading(false);
         }, 50);
@@ -64,10 +64,10 @@ const Chat = () => {
     })
   };
 
-  const sendMessage = async() => {
-    if (socket && (message.trim() || selectedImage ) ) {
+  const sendMessage = async () => {
+    if (socket && socket.readyState === WebSocket.OPEN && (message.trim() || selectedImage)) {
       await secureRequest(async () => {
-        await socket.send(JSON.stringify({ message: message || null, sender: user_id, image: selectedImage || null, }));
+        socket.send(JSON.stringify({ message: message || null, sender: user_id, image: selectedImage || null }));
       });
       setMessage("");
       setSelectedImage(null);
@@ -121,16 +121,16 @@ const Chat = () => {
       <button className="side_bar_togle" onClick={togleSidebar}>{sidebar ? <ArrowBarLeft fontSize={25} fontWeight={900} /> : <ArrowBarRight fontSize={25} fontWeight={900} />}</button>
       <div className={`chat-main ${sidebar? 'chat-main-closed':'chat-main -open'}`}>
         <div className="chat-header" onClick={togleSidebar}>
-          {activeReceiver?.is_superuser ? <img src={logo} alt="Admin user" style={{borderRadius:"0%"}} className="current-user-avatar"></img> :activeReceiver?.profile_picture? <img  src={`${activeReceiver?.profile_picture}`}  alt={activeReceiver?.first_name}  className="current-user-avatar"  />: <img  src={user_icone}  alt={activeReceiver?.first_name}  className="current-user-avatar"  />}
+          {activeReceiver?.is_superuser ? <img src={logo} alt="Admin user" style={{borderRadius:"0%"}} className="current-user-avatar"></img> :activeReceiver?.profile_picture? <img  src={`${activeReceiver?.profile_picture}`}  alt={activeReceiver?.first_name || "User"}  className="current-user-avatar"  />: <img  src={user_icone}  alt={activeReceiver?.first_name || "User"}  className="current-user-avatar"  />}
 
           <div className="current-user-info">
-          {activeReceiver?.is_superuser ? <h5 className="current-user-name">Admin user</h5> :<h5 className="current-user-name">{activeReceiver?.first_name} {activeReceiver?.last_name}</h5>}
+          {activeReceiver?.is_superuser ? <h5 className="current-user-name">Admin user</h5> :<h5 className="current-user-name">{activeReceiver?.first_name || "Unknown"} {activeReceiver?.last_name || ""}</h5>}
           </div>
         </div>
         
         <div className="messages-container" ref={messagesContainerRef}>
-          {messages?.map(msg => (
-            <div  key={msg.id}  className={`message-wrapper ${msg.sender == user_id ? 'user-message' : 'other-message'}`} >
+          {messages?.map((msg, idx) => (
+            <div  key={msg.id || `${idx}-${msg.timestamp}`}  className={`message-wrapper ${msg.sender == user_id ? 'user-message' : 'other-message'}`} >
               <div className={`message-bubble ${msg.sender == user_id ?'user-bubble' : 'other-bubble'}`}>
                 {msg.image && <img src={`${msg.image}`} alt="Sent Image" className="chat-image" />}
                 {msg.text && <p className="message-content">{msg.text}</p>}

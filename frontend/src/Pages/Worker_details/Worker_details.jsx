@@ -121,9 +121,14 @@ const Worker_details = ({ worker_id }) => {
             const dayOffset = (currentDay + i) % 7;
             const day = new Date(today);
             day.setDate(today.getDate() + (i))
+            // Format date as MM/DD/YYYY to match backend expectation
+            const month = String(day.getMonth() + 1).padStart(2, '0');
+            const date = String(day.getDate()).padStart(2, '0');
+            const year = day.getFullYear();
+            const formattedDate = `${month}/${date}/${year}`;
             weekDays.push({
                 dayName: daysOfWeek[dayOffset],
-                date: day.toLocaleDateString(),
+                date: formattedDate,
             });
         }
         return weekDays;

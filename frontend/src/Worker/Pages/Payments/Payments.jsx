@@ -153,34 +153,32 @@ const Payments = ({ setPage }) => {
             <h1>Transaction history</h1>
 
             <div className="table-container " >
-                <table className="table">
-                    {walletData?.length == 0 ?
-                        <h3 style={{ padding: "5% 5%", color: 'red' }}>Please Complete at least one payment</h3>
-                        :
-                        <>
-                            <thead>
-                                <tr>
-                                    <th scope="col">Amount</th>
-                                    <th scope="col">Payment Id</th>
-                                    <th scope="col">Status</th>
-                                    <th scope="col">Type</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {
-                                    walletData?.map((row,index) => (
-                                        <tr key={index}>
-                                            <td>₹ {row?.amount/100}</td>
-                                            <td>{row?.pyment_id}</td>
-                                            <td>{row?.status}</td>
-                                            <td>{row?.type === "credit" ? "credit" : "debit"}</td>
-                                        </tr>
-                                    ))
-                                }
-                            </tbody>
-                        </>
-                    }
-                </table>
+                {walletData?.length == 0 ?
+                    <h3 style={{ padding: "5% 5%", color: 'red' }}>Please Complete at least one payment</h3>
+                    :
+                    <table className="table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Amount</th>
+                                <th scope="col">Payment Id</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Type</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {
+                                walletData?.map((row,index) => (
+                                    <tr key={index}>
+                                        <td>₹ {row?.amount/100}</td>
+                                        <td>{row?.pyment_id}</td>
+                                        <td>{row?.status}</td>
+                                        <td>{row?.type === "credit" ? "credit" : "debit"}</td>
+                                    </tr>
+                                ))
+                            }
+                        </tbody>
+                    </table>
+                }
                 <br />
             </div>
         </div>

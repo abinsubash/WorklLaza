@@ -116,30 +116,32 @@ const Schedule = () => {
           { slots?.length == 0 ?
             <h3 style={{padding:"5% 5%", color:'red'}}>Please add at least one slot</h3>
             :
-            <table className="table">
-              <thead>
-                <tr>
-                  <th scope="col">Day </th>
-                  <th scope="col">From </th>
-                  <th scope="col">To </th>
-                  <th scope="col">Action </th>
-                </tr>
-              </thead>
-              <tbody>
-                {
-                  slots?.map((slot) => (
-                  <tr key={slot?.id}>
-                    <td>{slot?.day_of_week}</td>
-                    <td>{slot?.start_time}</td>
-                    <td>{slot?.end_time}</td>
-                    <td>
-                      <Trash3 color='red' onClick={()=>delete_slot(slot.id)}/> &nbsp;&nbsp;&nbsp;{slot?.is_active ? <Ban color='red' onClick={()=>change_slot_status(slot.id)}/>: <ArrowRepeat color='green' onClick={()=>change_slot_status(slot.id)}/>}
-                    </td>
+            <>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Day </th>
+                    <th scope="col">From </th>
+                    <th scope="col">To </th>
+                    <th scope="col">Action </th>
                   </tr>
-                  ))
-                }
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {
+                    slots?.map((slot) => (
+                    <tr key={slot?.id}>
+                      <td>{slot?.day_of_week}</td>
+                      <td>{slot?.start_time}</td>
+                      <td>{slot?.end_time}</td>
+                      <td>
+                        <Trash3 color='red' onClick={()=>delete_slot(slot.id)}/> &nbsp;&nbsp;&nbsp;{slot?.is_active ? <Ban color='red' onClick={()=>change_slot_status(slot.id)}/>: <ArrowRepeat color='green' onClick={()=>change_slot_status(slot.id)}/>}
+                      </td>
+                    </tr>
+                    ))
+                  }
+                </tbody>
+              </table>
+            </>
           }
           <br /> 
         </div>
